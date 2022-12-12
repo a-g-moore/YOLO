@@ -49,7 +49,7 @@ def decodeBoxes(dat):
     return boxes
 
 dataset = VOCDataset(
-            "data/8examples.csv",
+            "data/100examples.csv",
             transform = Compose([
                 transforms.Resize((448, 448)), 
                 transforms.ToTensor()
@@ -100,5 +100,5 @@ for i in range(1):
       plot_boxes(predboxes, ax, "r", im.shape)
       plot_boxes(truthboxes, ax, "b", im.shape)
 
-  plt.show()
+  plt.savefig('testoverfit.png')
 

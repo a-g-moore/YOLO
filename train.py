@@ -15,13 +15,13 @@ LEARNING_RATE = 2e-5
 DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
 BATCH_SIZE = 1
 WEIGHT_DECAY = 0
-EPOCHS = 100
+EPOCHS = 500
 NUM_WORKERS = 2
 PIN_MEMORY = True
 IMG_DIR = "data/images"
 LABEL_DIR = "data/labels"
 
-def train(dataLoader, model, optimizer, lossFunction):
+def train(dataLoader, model, optimizer, lossFunction, epoch):
     loop = tqdm(dataLoader, leave=True)
 
     for batchIndex, (x, y) in enumerate(loop):
@@ -32,7 +32,7 @@ def train(dataLoader, model, optimizer, lossFunction):
         loss.backward()
         optimizer.step()
 
-        loop.set_postfix(loss=loss.item())
+        loop.set_postfix(loss=loss.item(), epoch = epoch)
 
 def saveCheckpoint(model, optimizer, filename = "checkpoint.pth.tar"):
     state = {
@@ -58,7 +58,7 @@ def main():
 
 
     trainDataSet = VOCDataset(
-            "data/8examples.csv",
+            "data/100examples.csv",
             transform = Compose([
                 transforms.Resize((448, 448)), 
                 transforms.ToTensor()
@@ -73,17 +73,17 @@ def main():
             num_workers = NUM_WORKERS,
             pin_memory = PIN_MEMORY,
             shuffle = True,
-            drop_last = False
+            drop_last = True
             )
 
     schedule = torch.linspace(1e-3, 1e-2, 10).tolist() + [1e-2]*65 + [1e-3]*30 + [1e-4]*30
     #print(schedule)
 
     for epoch in range(EPOCHS):
-        train(trainDataLoader, model, optimizer, lossFunction)
+        train(trainDataLoader, model, optimizer, lossFunction, epoch)
         #optimizer.param_groups[0]['lr'] = schedule[epoch]
 
-        if epoch % 10 == 0:
+        if epoch % 100 == 0 and epoch != 0:
             saveCheckpoint(model, optimizer)
 
     saveCheckpoint(model, optimizer)
