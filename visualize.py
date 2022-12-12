@@ -79,7 +79,7 @@ model.to(DEVICE)
 
 puller = iter(dataset)
 for i in range(1):
-  fig, axs = plt.subplots(3,3,figsize=(30, 30))
+  fig, axs = plt.subplots(3,3,figsize=(10, 10))
   for row in range(3):
     for col in range(3):
       ax = axs[row, col]

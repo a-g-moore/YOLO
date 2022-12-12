@@ -11,11 +11,11 @@ from loss import YoloLoss
 
 torch.manual_seed(6969)
 
-LEARNING_RATE = 1e-4
+LEARNING_RATE = 2e-5
 DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
-BATCH_SIZE = 16
+BATCH_SIZE = 1
 WEIGHT_DECAY = 0
-EPOCHS = 135
+EPOCHS = 100
 NUM_WORKERS = 2
 PIN_MEMORY = True
 IMG_DIR = "data/images"
