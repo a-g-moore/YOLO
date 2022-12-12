@@ -1,0 +1,46 @@
+{
+	"feature_detector": [
+		{"type": "conv", "kernel": 7, "outputChannels": 64, "stride": 2}, 
+		{"type": "maxpool", "kernel": 2, "stride": 2}, 
+		{"type": "conv", "kernel": 3, "outputChannels": 192, "stride": 1}, 
+		{"type": "maxpool", "kernel": 2, "stride": 2}, 
+		{"type": "conv", "kernel": 1, "outputChannels": 128, "stride": 1}, 
+		{"type": "conv", "kernel": 3, "outputChannels": 256, "stride": 1}, 
+		{"type": "conv", "kernel": 1, "outputChannels": 256, "stride": 1}, 
+		{"type": "conv", "kernel": 3, "outputChannels": 512, "stride": 1}, 
+		{"type": "maxpool", "kernel": 2, "stride": 2}, 
+		{"type": "conv", "kernel": 1, "outputChannels": 256, "stride": 1}, 
+		{"type": "conv", "kernel": 3, "outputChannels": 512, "stride": 1}, 
+		{"type": "conv", "kernel": 1, "outputChannels": 256, "stride": 1}, 
+		{"type": "conv", "kernel": 3, "outputChannels": 512, "stride": 1}, 
+		{"type": "conv", "kernel": 1, "outputChannels": 256, "stride": 1}, 
+		{"type": "conv", "kernel": 3, "outputChannels": 512, "stride": 1}, 
+		{"type": "conv", "kernel": 1, "outputChannels": 256, "stride": 1}, 
+		{"type": "conv", "kernel": 3, "outputChannels": 512, "stride": 1}, 
+		{"type": "conv", "kernel": 1, "outputChannels": 256, "stride": 1}, 
+		{"type": "conv", "kernel": 3, "outputChannels": 512, "stride": 1}, 
+		{"type": "conv", "kernel": 1, "outputChannels": 512, "stride": 1}, 
+		{"type": "conv", "kernel": 3, "outputChannels": 1024, "stride": 1}
+	],
+	"yolo_classifier": [
+		{"type": "maxpool", "kernel": 2, "stride": 2}, 
+		{"type": "conv", "kernel": 1, "outputChannels": 512, "stride": 1}, 
+		{"type": "conv", "kernel": 3, "outputChannels": 1024, "stride": 1}, 
+		{"type": "conv", "kernel": 1, "outputChannels": 512, "stride": 1}, 
+		{"type": "conv", "kernel": 3, "outputChannels": 1024, "stride": 1}, 
+		{"type": "conv", "kernel": 3, "outputChannels": 1024, "stride": 1}, 
+		{"type": "conv", "kernel": 3, "outputChannels": 1024, "stride": 2}, 
+		{"type": "conv", "kernel": 3, "outputChannels": 1024, "stride": 1}, 
+		{"type": "conv", "kernel": 3, "outputChannels": 1024, "stride": 1},
+		{"type": "flatten"},
+		{"type": "linear", "output_size": 4096, "activation": "LeakyReLU"},
+		{"type": "linear", "output_size": 1225, "activation": "none"}
+	],
+	"imagenet_classifier": [
+		{"type": "avgpool", "kernel": 2, "stride": 2},
+		{"type": "flatten"},
+		{"type": "linear", "output_size": 4096, "activation": "LeakyReLU"},
+		{"type": "linear", "output_size": 1000, "activation": "none"}
+	]
+}
+
