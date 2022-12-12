@@ -6,34 +6,34 @@ from torch.utils.data import DataLoader
 import json, sys
 
 from model import Model
-from data import VOCDataset, Compose
-from loss import YoloLoss
-from checkpoint import *
+from data import ImageNetDataset, Compose
 
 if __name__ == "__main__":
     # Initialize general parameters
     device = "cuda" if torch.cuda.is_available() else "cpu"
     torch.manual_seed(6969)
-    model_name = "yolo"
     with open("params.json", "r") as FILE:
         params = json.load(FILE)
 
     print(params)
 
     # Initialize model & optimizer and so on
-    model = Model(classifier_name = "yolo_classifier").to(device)
+    model = Model(classifier_name = "imagenet_classifier").to(device)
     optimizer = optim.Adam(model.parameters(), lr = params['lr'])
     #optim.SGD(model.parameters(), momentum = 0.9, weight_decay = 5e-4, lr = 1e-3)
-    lossFunction = YoloLoss()
+    lossFunction = nn.CrossEntropy()
 
     # Load model from checkpoint if instructed
     if '--new' not in sys.argv:
-        load_checkpoint(model, optimizer, model_name)
+        print("Loading model from checkpoint.")
+        checkpoint = torch.load('imagenet.pth.tar')
+        model.load_state_dict(checkpoint['state_dict'])
+        optimizer.load_state_dict(checkpoint['optimizer'])
     else:
         print("Generating new model.")
 
     # Initialize data loader
-    trainDataSet = VOCDataset(
+    trainDataSet = ImageNetDataset(
             params['training_csv'],
             transform = Compose([
                 transforms.Resize((448, 448)), 
@@ -70,7 +70,7 @@ if __name__ == "__main__":
             loop.set_postfix(loss=loss.item(), epoch = epoch)
 
         if epoch % params['num_epochs_between_checkpoints'] == 0 and epoch:
-            save_checkpoint(model, optimizer, model_name)
+            save_checkpoint(model, optimizer, filename = 'imagenet.pth.tar')
 
-    save_checkpoint(model, optimizer, model_name)
+    save_checkpoint(model, optimizer, filename = 'imagenet.pth.tar')
 
