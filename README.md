@@ -6,20 +6,26 @@ This is a PyTorch-based implementation of the object detection algorithm YOLOv1,
 
 The program expects the Pascal VOC dataset prepared my Aladdin to be in a folder called `data/`. To obtain the data, run the follow command using a Kaggle API key to download it from Aladdin's repository:
 
-`kaggle datasets download -d aladdinpersson/pascal-voc-yolo-works-with-albumentations`
+```sh
+kaggle datasets download -d aladdinpersson/pascal-voc-yolo-works-with-albumentations
+```
 
 To set up the proper environment and install dependencies, run the following commands (assuming that you are running MacOS or Linux):
 
-`python -m venv env
+```sh
+python -m venv env
 source env/bin/activate
-python -m pip install torch torchvision matplotlib pandas tqdm click GPUtil`
+python -m pip install torch torchvision matplotlib pandas tqdm click GPUtil
+```
 
 ## Training Instructions
 
 Unlike Aladdin's guide, this implementation is intened to do the pre-training on ImageNet described in the paper. Therefore, there are two models available to train, `yolo` and `imagenet`. To train the model, specify the training parameters in `yolo.json` and `imagenet.json`, and then run the following commands:
 
-`python train.py --model imagenet --new
-python train.py --model yolo --new --features imagenet` 
+```sh
+python train.py --model imagenet --new
+python train.py --model yolo --new --features imagenet
+```
 
 The `--features` option loads the feature detection block from a checkpoint of the specified model. For determininistic behavior, you can specify a seed with `--seed`. Omitting `--new` will load a model from a checkpoint: for instance, `yolo` will be loaded from `yolo.pth.tar`. You can also specify a different parameter JSON file with `--params`. For details regarding usage of the training script, run `python train.py --help`. 
 
