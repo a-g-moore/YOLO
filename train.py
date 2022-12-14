@@ -2,6 +2,7 @@ import click
 import torch
 import torch.optim as optim
 import torch.nn as nn
+import torchvision.datasets as datasets
 import torchvision.transforms as transforms
 from tqdm import tqdm
 from torch.utils.data import DataLoader
@@ -12,7 +13,7 @@ from data import VOCDataset, Compose
 from loss import YoloLoss
 from checkpoint import *
 
-def train(device, model, optimizer, loss_function, data_loader, params, model_name):
+def train(device, model, optimizer, loss_function, data_loader, scheduler, params, model_name):
     for epoch in range(params['epochs']):
         loop = tqdm(data_loader, leave=True)
 
@@ -29,6 +30,8 @@ def train(device, model, optimizer, loss_function, data_loader, params, model_na
             # update progress bar
             loop.set_postfix(loss=loss.item(), epoch = epoch)
 
+        scheduler.step()
+
         if epoch % params['num_epochs_between_checkpoints'] == 0 and epoch:
             save_checkpoint(model, optimizer, model_name)
 
@@ -36,19 +39,40 @@ def train(device, model, optimizer, loss_function, data_loader, params, model_na
 
 def init(device, model_name, params):
     model = Model(classifier_name = f"{model_name}_classifier").to(device)
-    optimizer = optim.Adam(model.parameters(), lr = params['lr'])
-    #optim.SGD(model.parameters(), momentum = 0.9, weight_decay = 5e-4, lr = 1e-3)
-    loss_function = YoloLoss() if model_name == 'yolo' else nn.CrossEntropyLoss()
-
-    dataset = VOCDataset(
-            params['training_csv'],
-            transform = Compose([
-                transforms.Resize((448, 448)), 
-                transforms.ToTensor()
-                ]),
-            img_dir = params['img_dir'],
-            label_dir = params['label_dir']
+    #optimizer = optim.Adam(model.parameters(), lr = params['lr'])
+    optimizer = optim.SGD(
+            model.parameters(), 
+            momentum = 0.9,
+            weight_decay = params['weight_decay'], 
+            lr = params['lr']
             )
+
+    scheduler = torch.optim.lr_scheduler.StepLR(optimizer, step_size = 30, gamma = 0.1)
+
+    loss_function = YoloLoss() if model_name == 'yolo' else nn.CrossEntropyLoss()
+    loss_function = loss_function.to(device)
+    
+    dataset = None
+    if model_name == 'yolo':
+        dataset = VOCDataset(
+                params['training_csv'],
+                transform = Compose([
+                    transforms.Resize((448, 448)), 
+                    transforms.ToTensor()
+                    ]),
+                img_dir = params['img_dir'],
+                label_dir = params['label_dir']
+                )
+    if model_name == 'imagenet':
+        dataset = datasets.ImageFolder(
+                params['data_folder'],
+                transforms.Compose([
+                    transforms.RandomResizedCrop(224),
+                    transforms.RandomHorizontalFlip(),
+                    transforms.ToTensor(),
+                    ])
+                )
+
 
     data_loader = DataLoader(
             dataset = dataset,
@@ -59,7 +83,7 @@ def init(device, model_name, params):
             drop_last = True
             )
 
-    return (model, optimizer, loss_function, data_loader)
+    return (model, optimizer, loss_function, data_loader, scheduler)
 
 models = {
         'yolo': 'YOLO Version 1 Object Detector.',
@@ -78,9 +102,11 @@ def main(model_name, new, features, seed, param_filename):
     
     param_filename = param_filename + ".json" if param_filename else model_name + ".json"
     with open(param_filename, "r") as FILE: params = json.load(FILE)
-    model, optimizer, loss_function, data_loader = init(device, model_name, params)
+    model, optimizer, loss_function, data_loader, scheduler = init(device, model_name, params)
     if not new: load_checkpoint(model, optimizer, model_name)
-    train(device, model, optimizer, loss_function, data_loader, params, model_name)
+    ## TODO: make checkpoint load the scheduler
+
+    train(device, model, optimizer, loss_function, data_loader, scheduler, params, model_name)
 
 if __name__ == "__main__":
     main()

@@ -1,0 +1,10 @@
+{
+	"lr": 1e-2,
+	"batch_size": 16, 
+	"weight_decay": 1e-4, 
+	"epochs": 200, 
+	"num_workers": 2, 
+	"pin_memory": true, 
+	"data_folder": "imagenet/train/imagenet-mini/train",
+	"num_epochs_between_checkpoints": 5
+}

@@ -4,7 +4,7 @@ This is a PyTorch-based implementation of the object detection algorithm YOLOv1,
 
 ## Installation
 
-The program expects the Pascal VOC dataset prepared my Aladdin to be in a folder called `data/`. To obtain the data, run the follow command using a Kaggle API key to download it from Aladdin's repository:
+The program expects the Pascal VOC dataset prepared by Aladdin to be in a folder called `data/`. To obtain the data, run the following command using a Kaggle API key to download it from Aladdin's repository:
 
 ```sh
 kaggle datasets download -d aladdinpersson/pascal-voc-yolo-works-with-albumentations
@@ -20,7 +20,7 @@ python -m pip install torch torchvision matplotlib pandas tqdm click GPUtil
 
 ## Training Instructions
 
-Unlike Aladdin's guide, this implementation is intened to do the pre-training on ImageNet described in the paper. Therefore, there are two models available to train, `yolo` and `imagenet`. To train the model, specify the training parameters in `yolo.json` and `imagenet.json`, and then run the following commands:
+Unlike Aladdin's guide, this implementation is intended to do the pre-training on ImageNet described in the paper. Therefore, there are two models available to train, `yolo` and `imagenet`. To train the model, specify the training parameters in `yolo.json` and `imagenet.json`, and then run the following commands:
 
 ```sh
 python train.py --model imagenet --new
