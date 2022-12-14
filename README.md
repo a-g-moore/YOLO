@@ -10,6 +10,12 @@ The program expects the Pascal VOC dataset prepared by Aladdin to be in a folder
 kaggle datasets download -d aladdinpersson/pascal-voc-yolo-works-with-albumentations
 ```
 
+For pre-training on ImageNet, we are currently using the ImageNet 1000 Mini training set with data augmentation. The dataset is available via the following Kaggle API command:
+
+```sh
+kaggle datasets download -d ifigotin/imagenetmini-1000
+```
+
 To set up the proper environment and install dependencies, run the following commands (assuming that you are running MacOS or Linux):
 
 ```sh

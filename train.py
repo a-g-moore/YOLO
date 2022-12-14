@@ -100,7 +100,7 @@ def main(model_name, new, features, seed, param_filename):
     device = "cuda" if torch.cuda.is_available() else "cpu"
     if not seed is None: torch.manual_seed(seed)
     
-    param_filename = param_filename + ".json" if param_filename else model_name + ".json"
+    param_filename = param_filename if param_filename else "config/" + model_name + ".json"
     with open(param_filename, "r") as FILE: params = json.load(FILE)
     model, optimizer, loss_function, data_loader, scheduler = init(device, model_name, params)
     if not new: load_checkpoint(model, optimizer, model_name)

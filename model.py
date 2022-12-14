@@ -26,7 +26,7 @@ class Model(nn.Module):
     def __init__(self, classifier_name, featureDetector = None, **kwargs):
         super(Model, self).__init__()
 
-        with open("architecture.json", "r") as FILE:
+        with open("config/architecture.json", "r") as FILE:
             architectures = json.load(FILE)
 
         self.featureDetector = featureDetector if featureDetector else createNetwork(architectures['feature_detector'])

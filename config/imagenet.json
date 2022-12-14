@@ -5,6 +5,6 @@
 	"epochs": 200, 
 	"num_workers": 2, 
 	"pin_memory": true, 
-	"data_folder": "imagenet/train/imagenet-mini/train",
+	"data_folder": "imagenet-mini/train",
 	"num_epochs_between_checkpoints": 5
 }
