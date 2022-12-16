@@ -7,6 +7,8 @@ import torchvision.transforms as transforms
 from tqdm import tqdm
 from torch.utils.data import DataLoader
 import json, sys
+import matplotlib.pyplot as plt 
+import numpy as np
 
 from model import Model
 from data import VOCDataset, Compose
@@ -33,9 +35,9 @@ def train(device, model, optimizer, loss_function, data_loader, scheduler, param
         scheduler.step()
 
         if epoch % params['num_epochs_between_checkpoints'] == 0 and epoch:
-            save_checkpoint(model, optimizer, model_name)
+            save_checkpoint(model, optimizer, scheduler, model_name)
 
-    save_checkpoint(model, optimizer, model_name)
+    save_checkpoint(model, optimizer, scheduler, model_name)
 
 def init(device, model_name, params):
     model = Model(classifier_name = f"{model_name}_classifier").to(device)
@@ -67,12 +69,30 @@ def init(device, model_name, params):
         dataset = datasets.ImageFolder(
                 params['data_folder'],
                 transforms.Compose([
-                    transforms.RandomResizedCrop(224),
                     transforms.RandomHorizontalFlip(),
+                    transforms.RandomRotation(degrees = (-30, 30)),
+                    transforms.RandomResizedCrop(size = 224, scale = (0.33, 1.0)),
+                    transforms.ColorJitter(brightness=0.3, hue = 0.2),
+                    transforms.RandomPosterize(bits=4, p = 0.2),
+                    transforms.RandomAdjustSharpness(sharpness_factor = 2),
+                    transforms.RandomEqualize(),
                     transforms.ToTensor(),
                     ])
                 )
 
+    """
+    puller = iter(dataset)
+    for i in range(3):
+        fig, axs = plt.subplots(3,3,figsize=(10, 10))
+        for row in range(3):
+            for col in range(3):
+                ax = axs[row, col]
+
+                image, label = next(puller)
+                ax.imshow(np.array(image.permute(1,2,0)))
+
+        plt.savefig(f'augmented{i}.png')
+    """
 
     data_loader = DataLoader(
             dataset = dataset,
@@ -103,7 +123,7 @@ def main(model_name, new, features, seed, param_filename):
     param_filename = param_filename if param_filename else "config/" + model_name + ".json"
     with open(param_filename, "r") as FILE: params = json.load(FILE)
     model, optimizer, loss_function, data_loader, scheduler = init(device, model_name, params)
-    if not new: load_checkpoint(model, optimizer, model_name)
+    if not new: load_checkpoint(model, optimizer, scheduler, model_name)
     ## TODO: make checkpoint load the scheduler
 
     train(device, model, optimizer, loss_function, data_loader, scheduler, params, model_name)
