@@ -44,7 +44,7 @@ def init(device, model_name, params):
     #optimizer = optim.Adam(model.parameters(), lr = params['lr'])
     optimizer = optim.SGD(
             model.parameters(), 
-            momentum = 0.9,
+            momentum = params['momentum'],
             weight_decay = params['weight_decay'], 
             lr = params['lr']
             )
@@ -124,7 +124,6 @@ def main(model_name, new, features, seed, param_filename):
     with open(param_filename, "r") as FILE: params = json.load(FILE)
     model, optimizer, loss_function, data_loader, scheduler = init(device, model_name, params)
     if not new: load_checkpoint(model, optimizer, scheduler, model_name)
-    ## TODO: make checkpoint load the scheduler
 
     train(device, model, optimizer, loss_function, data_loader, scheduler, params, model_name)
 

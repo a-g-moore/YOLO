@@ -1,12 +1,13 @@
 {
-	"lr": 1e-05,
-	"batch_size": 2,
-	"weight_decay": 0,
-	"epochs": 500,
-	"num_workers": 6,
+	"lr": 1e-3,
+	"batch_size": 64,
+	"weight_decay": 5e-4,
+	"momentum": 0.9,
+	"epochs": 200,
+	"num_workers": 8,
 	"pin_memory": true,
 	"img_dir": "data/images",
 	"label_dir": "data/labels",
-	"training_csv": "data/100examples.csv",
-	"num_epochs_between_checkpoints": 20
+	"training_csv": "data/train.csv",
+	"num_epochs_between_checkpoints": 5
 }
