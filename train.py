@@ -110,9 +110,6 @@ def init(device, model_name, params, features):
 
     return (model, optimizer, loss_function, data_loader, scheduler)
 
-def load_features(device, model, features): 
-    parent_model = Model(classifier_name = f"{features}_classifier").to(device)
-
 models = {
         'yolo': 'YOLO Version 1 Object Detector.',
         'imagenet': 'Straightforward image classifier built off the same feature detector.'
