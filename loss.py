@@ -1,7 +1,7 @@
 import torch
 import torch.nn as nn
 
-def intersection_over_union_old(box1, box2):
+def intersection_over_union(box1, box2):
     box1x1 = box1[..., 0] - box1[..., 2] / 2
     box1y1 = box1[..., 1] - box1[..., 3] / 2
     box1x2 = box1[..., 0] + box1[..., 2] / 2
@@ -44,7 +44,7 @@ class YoloLoss(nn.Module):
 
         iou = torch.cat(
             [
-                intersection_over_union_old(
+                intersection_over_union(
                     box_predictions[..., (i*5 + 1):(i*5 + 5)], 
                     box_target[..., 1:]
                     ).unsqueeze(0)

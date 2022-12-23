@@ -46,7 +46,5 @@ To visualize the output of the network on some examples, run `visualize.py`. If 
 # Current Coding Objectives 
 
 - Add testing for both models
-- Choose an adaptive scheduler for the imagenet trainer
-- Implement custom scheduler for YOLO
 - VOC data augmentation (albumentations?)
 - Proper visualization & validation code (non-max suppression, mean average precision)

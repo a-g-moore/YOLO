@@ -1,24 +1,39 @@
 import click
 import torch
-import torch.optim as optim
 import torch.nn as nn
 import torchvision.datasets as datasets
 import torchvision.transforms as transforms
 from tqdm import tqdm
 from torch.utils.data import DataLoader
-import json, sys
-import matplotlib.pyplot as plt 
-import numpy as np
+import json, statistics
 
 from model import Model
 from data import VOCDataset, Compose
 from loss import YoloLoss
-from checkpoint import *
+from checkpoint import save_checkpoint, load_checkpoint
+
+class WrappedChainScheduler(torch.optim.lr_scheduler.ChainedScheduler):
+    """For some reason, PyTorch's ChainedScheduler class does not allow you to pass keyword arguments
+    to the schedulers in the list, preventing you from using ReduceLROnPlateau in a chain. This is a 
+    simple wrapper class which fixes that issue.
+    """
+
+    def __init__(self, schedulers):
+        super().__init__(schedulers)
+    
+    def step(self, metrics = None):
+        for scheduler in self._schedulers:
+            if isinstance(scheduler, torch.optim.lr_scheduler.ReduceLROnPlateau):
+                scheduler.step(metrics)
+            else:
+                scheduler.step()
+        self._last_lr = [group['lr'] for group in self._schedulers[-1].optimizer.param_groups]
 
 def train(device, model, optimizer, loss_function, data_loader, scheduler, params, model_name):
     for epoch in range(params['epochs']):
         loop = tqdm(data_loader, leave=True)
 
+        losses = []
         for batchIndex, (x, y) in enumerate(loop):
             # run model on batch
             x, y = x.to(device), y.to(device)
@@ -30,9 +45,14 @@ def train(device, model, optimizer, loss_function, data_loader, scheduler, param
             optimizer.step()
 
             # update progress bar
-            loop.set_postfix(loss=loss.item(), epoch = epoch)
+            loss_val = loss.item()
+            losses.append(loss_val)
+            mean_loss = statistics.mean(losses)
+            loop.set_postfix(loss=mean_loss, epoch = epoch, lr = scheduler.get_last_lr()[0])
 
-        #scheduler.step()
+        mean_loss = statistics.mean(losses)
+        loop.set_postfix(mean_loss = mean_loss, epoch = epoch)
+        scheduler.step(metrics = mean_loss)
 
         if epoch % params['num_epochs_between_checkpoints'] == 0 and epoch:
             save_checkpoint(model, optimizer, scheduler, model_name)
@@ -40,21 +60,32 @@ def train(device, model, optimizer, loss_function, data_loader, scheduler, param
     save_checkpoint(model, optimizer, scheduler, model_name)
 
 def init(device, model_name, params, features):
+    # If instructed, load a feature dectection block from a specified checkpoint
+    featureDetector = None
     if features:
         parent_model = Model(classifier_name = f"{features}_classifier")
         load_checkpoint(parent_model, None, None, features)
-        model = Model(classifier_name = f"{model_name}_classifier", featureDetector = parent_model.featureDetector).to(device)
-    else:
-        model = Model(classifier_name = f"{model_name}_classifier").to(device)
+        featureDetector = parent_model.featureDetector
+        
+    # Create the appropriate model, using a pre-loaded feature detector if necessary.
+    model = Model(classifier_name = f"{model_name}_classifier", featureDetector = featureDetector).to(device)
     
-    optimizer = optim.SGD(
+    optimizer = torch.optim.SGD(
             model.parameters(), 
             momentum = params['momentum'],
             weight_decay = params['weight_decay'], 
             lr = params['lr']
             )
     
-    scheduler = torch.optim.lr_scheduler.StepLR(optimizer, step_size = 30, gamma = 0.1)
+    if model_name == 'yolo':
+        scheduler = WrappedChainScheduler([
+            torch.optim.lr_scheduler.LinearLR(optimizer, start_factor = 0.1, total_iters = 10),
+            torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer)
+        ])
+        #torch.optim.lr_scheduler.MultiStepLR(optimizer, gamma = 0.1, milestones = [75, 105, 135], verbose = True)
+
+    if model_name == 'imagenet':
+        scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer, verbose = True)
 
     loss_function = YoloLoss() if model_name == 'yolo' else nn.CrossEntropyLoss()
     loss_function = loss_function.to(device)
@@ -84,20 +115,6 @@ def init(device, model_name, params, features):
                     transforms.ToTensor(),
                     ])
                 )
-
-    """
-    puller = iter(dataset)
-    for i in range(3):
-        fig, axs = plt.subplots(3,3,figsize=(10, 10))
-        for row in range(3):
-            for col in range(3):
-                ax = axs[row, col]
-
-                image, label = next(puller)
-                ax.imshow(np.array(image.permute(1,2,0)))
-
-        plt.savefig(f'augmented{i}.png')
-    """
 
     data_loader = DataLoader(
             dataset = dataset,
