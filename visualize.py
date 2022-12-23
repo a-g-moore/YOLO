@@ -1,11 +1,12 @@
 import torch
-from model import Yolo
+from model import Model
 from data import VOCDataset, Compose
 import torchvision.transforms as transforms
 import numpy as np
 import matplotlib.pyplot as plt 
 import matplotlib.patches as patches
 from PIL import Image
+import random
 
 DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
 IMG_DIR = "data/images"
@@ -36,8 +37,13 @@ def decodeBoxes(dat):
     boxes = []
     for row in range(7):
         for col in range(7):
-            if dat[0,row,col,20] > 0.5:
-                x, y, w, h = dat[0,row,col,21:25].tolist()
+            if dat.size()[3] == 25 or dat[0,row,col,20] > dat[0, row, col, 25]:
+                i = 0
+            else:
+                i = 1
+            
+            if dat[0,row,col,20 + i*5] > 0.5:
+                x, y, w, h = dat[0,row,col,(20 + i*5 + 1):(20 + (i+1)*5)].tolist()
                 x = (x + col)/7
                 y = (y + row)/7
                 w = w/7
@@ -58,26 +64,14 @@ dataset = VOCDataset(
             label_dir = LABEL_DIR
             )
 
-
-for i in range(10, 10):
-    boxes = []
-    with open(f"data/labels/0000{i}.txt") as FILE:
-        for label in FILE.readlines():
-            classLabel, x, y, width, height = [
-                    float(x) if float(x) != int(float(x)) else int(x)
-                    for x in label.replace("\n", "").split()
-                    ]
-            boxes.append([x, y, width, height, labels[classLabel]])
-
-    print(boxes)
-    image = Image.open(f"data/images/0000{i}.jpg")
-    plot_image(image, boxes, boxes)
-
-model = Yolo()
-model.load_state_dict(torch.load('checkpoint.pth.tar')['state_dict'])
+model = Model(classifier_name = f"yolo_classifier")
+model.load_state_dict(torch.load('checkpoints/yolo.pth.tar')['model'])
 model.to(DEVICE)
 
 puller = iter(dataset)
+for i in range(random.randint(0,50)):
+    next(puller)
+
 for i in range(1):
   fig, axs = plt.subplots(3,3,figsize=(10, 10))
   for row in range(3):
@@ -86,7 +80,7 @@ for i in range(1):
 
       image, label = next(puller)
       image = image.to(DEVICE)
-      y = model(image.unsqueeze(0)).reshape((1,7,7,25))
+      y = model(image.unsqueeze(0)).reshape((1,7,7,30))
       label = label.unsqueeze(0)
       image = image.to("cpu")
       y = y.to("cpu")
@@ -94,10 +88,9 @@ for i in range(1):
 
       im = np.array(image.permute(1,2,0))
 
-      predboxes = decodeBoxes(y)
       truthboxes = decodeBoxes(label)
       ax.imshow(im)
-      plot_boxes(predboxes, ax, "r", im.shape)
+      plot_boxes(decodeBoxes(y), ax, "r", im.shape)
       plot_boxes(truthboxes, ax, "b", im.shape)
 
   plt.savefig('testoverfit.png')

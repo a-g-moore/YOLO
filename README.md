@@ -45,10 +45,7 @@ To visualize the output of the network on some examples, run `visualize.py`. If 
 
 # Current Coding Objectives 
 
-- Bugfix the multi-predictor YOLO loss function
-- try overfitting YOLO with the new loss function
 - Add testing for both models
-- Implement loading a pre-trained feature detector
 - Choose an adaptive scheduler for the imagenet trainer
 - Implement custom scheduler for YOLO
 - VOC data augmentation (albumentations?)

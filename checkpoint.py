@@ -23,6 +23,6 @@ def load_checkpoint(model, optimizer, scheduler, filename):
     
     print(f"Loading model from {filename}")
     checkpoint = torch.load(filename)
-    model.load_state_dict(checkpoint['model'])
-    optimizer.load_state_dict(checkpoint['optimizer'])
-    scheduler.load_state_dict(checkpoint['scheduler'])
+    if model: model.load_state_dict(checkpoint['model'])
+    if optimizer: optimizer.load_state_dict(checkpoint['optimizer'])
+    if scheduler: scheduler.load_state_dict(checkpoint['scheduler'])

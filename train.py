@@ -32,23 +32,28 @@ def train(device, model, optimizer, loss_function, data_loader, scheduler, param
             # update progress bar
             loop.set_postfix(loss=loss.item(), epoch = epoch)
 
-        scheduler.step()
+        #scheduler.step()
 
         if epoch % params['num_epochs_between_checkpoints'] == 0 and epoch:
             save_checkpoint(model, optimizer, scheduler, model_name)
 
     save_checkpoint(model, optimizer, scheduler, model_name)
 
-def init(device, model_name, params):
-    model = Model(classifier_name = f"{model_name}_classifier").to(device)
-    #optimizer = optim.Adam(model.parameters(), lr = params['lr'])
+def init(device, model_name, params, features):
+    if features:
+        parent_model = Model(classifier_name = f"{features}_classifier")
+        load_checkpoint(parent_model, None, None, features)
+        model = Model(classifier_name = f"{model_name}_classifier", featureDetector = parent_model.featureDetector).to(device)
+    else:
+        model = Model(classifier_name = f"{model_name}_classifier").to(device)
+    
     optimizer = optim.SGD(
             model.parameters(), 
             momentum = params['momentum'],
             weight_decay = params['weight_decay'], 
             lr = params['lr']
             )
-
+    
     scheduler = torch.optim.lr_scheduler.StepLR(optimizer, step_size = 30, gamma = 0.1)
 
     loss_function = YoloLoss() if model_name == 'yolo' else nn.CrossEntropyLoss()
@@ -105,6 +110,9 @@ def init(device, model_name, params):
 
     return (model, optimizer, loss_function, data_loader, scheduler)
 
+def load_features(device, model, features): 
+    parent_model = Model(classifier_name = f"{features}_classifier").to(device)
+
 models = {
         'yolo': 'YOLO Version 1 Object Detector.',
         'imagenet': 'Straightforward image classifier built off the same feature detector.'
@@ -122,7 +130,7 @@ def main(model_name, new, features, seed, param_filename):
     
     param_filename = param_filename if param_filename else "config/" + model_name + ".json"
     with open(param_filename, "r") as FILE: params = json.load(FILE)
-    model, optimizer, loss_function, data_loader, scheduler = init(device, model_name, params)
+    model, optimizer, loss_function, data_loader, scheduler = init(device, model_name, params, features)
     if not new: load_checkpoint(model, optimizer, scheduler, model_name)
 
     train(device, model, optimizer, loss_function, data_loader, scheduler, params, model_name)
