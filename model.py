@@ -63,6 +63,9 @@ def createLayer(description):
                 description['output_size'],
                 description['activation']
                 )
+    
+    if description['type'] == 'dropout':
+        return nn.Dropout(description['rate'])
 
     if description['type'] == "flatten":
         return nn.Flatten()

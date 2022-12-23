@@ -42,3 +42,14 @@ The architecture of the feature detection networks and both classifiers are stor
 ## Other Tools
 
 To visualize the output of the network on some examples, run `visualize.py`. If you get an error saying that CUDA has run out of memory try running `freeGPU.py` to clear CUDA memory. 
+
+# Current Coding Objectives 
+
+- Bugfix the multi-predictor YOLO loss function
+- try overfitting YOLO with the new loss function
+- Add testing for both models
+- Implement loading a pre-trained feature detector
+- Choose an adaptive scheduler for the imagenet trainer
+- Implement custom scheduler for YOLO
+- VOC data augmentation (albumentations?)
+- Proper visualization & validation code (non-max suppression, mean average precision)
