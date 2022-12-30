@@ -72,7 +72,7 @@ def init(device, model_name, params, features):
     
     if model_name == 'yolo':
         scheduler = WrappedChainScheduler([
-            torch.optim.lr_scheduler.LinearLR(optimizer, start_factor = 0.1, total_iters = 30),
+            torch.optim.lr_scheduler.LinearLR(optimizer, start_factor = 0.1, end_factor = 1.0, total_iters = 10),
             torch.optim.lr_scheduler.MultiStepLR(optimizer, milestones = [75, 105, 135])
             #torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer)
         ])
@@ -85,7 +85,7 @@ def init(device, model_name, params, features):
     loss_function = YoloLoss() if model_name == 'yolo' else torch.nn.CrossEntropyLoss()
     loss_function = loss_function.to(device)
     
-    dataset = get_VOC_dataset(params) if model_name == 'yolo' else get_ImageNet_dataset(params)
+    dataset = get_VOC_dataset(params, augment=True) if model_name == 'yolo' else get_ImageNet_dataset(params)
 
     data_loader = DataLoader(
             dataset = dataset,
@@ -109,13 +109,14 @@ models = {
 @click.option('-f', '--features', help = 'Parent model checkpoint to extract a feature detector from.')
 @click.option('-s', '--seed', type=int, help = 'Manual seed for deterministic behavior.')
 @click.option('-p', '--params', 'param_filename', help = 'Specify a different parameter file.')
-def main(model_name, new, features, seed, param_filename, view): 
+def main(model_name, new, features, seed, param_filename): 
     device = "cuda" if torch.cuda.is_available() else "cpu"
     if not seed is None: torch.manual_seed(seed)
     
     param_filename = param_filename if param_filename else "config/" + model_name + ".json"
     with open(param_filename, "r") as FILE: params = json.load(FILE)
     model, optimizer, loss_function, data_loader, scheduler = init(device, model_name, params, features)
+    
     if not new: load_checkpoint(model, optimizer, scheduler, model_name)
 
     train(device, model, optimizer, loss_function, data_loader, scheduler, params, model_name)

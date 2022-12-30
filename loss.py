@@ -11,7 +11,7 @@ def mean_average_precision(predictions, targets, min_iou = 0.5):
     num_target_boxes = 0
     for prediction, target in zip(predictions, targets):
         num_target_boxes += len(target['bboxes'])
-        for bbox, confidence in zip(predictions['bboxes'], predictions['confidences']):
+        for bbox, confidence in zip(prediction['bboxes'], prediction['confidences']):
             max_iou = max([intersection_over_union(bbox, target_bbox) for target_bbox in target['bboxes']])
             evaluations.append({
                 "confidence": confidence,
@@ -79,7 +79,7 @@ class YoloLoss(nn.Module):
                     box_predictions[..., i, 1:], 
                     box_target[..., i, 1:]
                     ).unsqueeze(0)
-                for i in range(2)
+                for i in range(self.num_boxes)
             ],
             dim = 0
             )

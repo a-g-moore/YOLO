@@ -100,8 +100,8 @@ def list_to_label(label, split_size=7, num_classes=20):
         if label_matrix[row, col, num_classes] or not torch.all(torch.tensor([row,col]) == torch.clamp(torch.tensor([row,col]), min=0, max=split_size-1)): continue
 
         # Transform the box to relative coordinates
-        relativeX, relativeY = split_size * x - col, split_size * y - row
-        width, height = (width * split_size, height * split_size)
+        relativeX, relativeY = x * split_size - col, y * split_size - row
+        #width, height = (width, height * split_size)
 
         # Enter the label into the tensor
         label_matrix[row, col, num_classes] = 1
@@ -115,8 +115,6 @@ def label_to_list(label, split_size = 7, num_classes = 20, threshold = 0.5):
     """Transforms the labels in (7,7,30) or (7,7,25) tensor format into list
     type labels used in the data files and the visualization functions.
     """
-
-    label = label[..., 0:25]
 
     boxes = {
         "bboxes": [],
@@ -135,8 +133,8 @@ def label_to_list(label, split_size = 7, num_classes = 20, threshold = 0.5):
                 x, y, w, h = label[row,col,(num_classes + i*5 + 1):(num_classes + (i+1)*5)].tolist()
                 x = (x + col)/split_size
                 y = (y + row)/split_size
-                w = w/split_size
-                h = h/split_size
+                w = w
+                h = h
                 class_index = torch.argmax(label[row,col,:num_classes])
 
                 boxes['bboxes'].append([x,y,w,h])
@@ -145,13 +143,19 @@ def label_to_list(label, split_size = 7, num_classes = 20, threshold = 0.5):
 
     return boxes
 
-def get_VOC_dataset(params):
+def get_VOC_dataset(params, augment = True):
     transform = albumentations.Compose([
                     #albumentations.Resize(width = 448, height = 448),
                     albumentations.HorizontalFlip(p=0.5),
                     albumentations.RandomResizedCrop(width = 448, height = 448, scale=(0.7, 1.0)),
                     albumentations.ColorJitter(),
-                    ], bbox_params=albumentations.BboxParams(format="yolo", min_visibility=0.75, label_fields=['class_ids']))
+                    albumentations.Blur(blur_limit = 7, always_apply = False, p = 0.5),
+                    albumentations.GaussNoise(var_limit = 40, mean = 0, per_channel = True, always_apply = False, p=0.5)
+                    ], bbox_params=albumentations.BboxParams(format="yolo", min_visibility=0.75, label_fields=['class_ids'])
+                    ) if augment else albumentations.Compose([
+                    albumentations.Resize(width = 448, height = 448),
+                    ], bbox_params=albumentations.BboxParams(format="yolo", min_visibility=0.75, label_fields=['class_ids'])
+                    )
 
     return VOCDataset(
                 params['training_csv'],

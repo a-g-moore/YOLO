@@ -6,7 +6,7 @@ import albumentations
 import math
 import cv2
 from torch.utils.data import DataLoader
-from data import VOCDataset
+from data import get_VOC_dataset
 from model import Model
 from checkpoint import load_checkpoint
 
@@ -78,7 +78,7 @@ def visualize(device, model, data_loader, plots_per_row = 4):
         inferences = model(images.to(device)).reshape(1, 7, 7, 30).to('cpu')
         ax = axs[int(i/plots_per_row), i % plots_per_row]
         target_labels = label_to_list(targets[0, ...])
-        inference_labels = label_to_list(inferences[0, ...], threshold = 0.5)
+        inference_labels = label_to_list(inferences[0, ...], threshold = 0.05)
         
         image = (255 * images[0, ...]).type(torch.ByteTensor).permute(1, 2, 0).numpy()
         
@@ -93,16 +93,12 @@ def main():
     model = Model(classifier_name = f"yolo_classifier").to(device)
     load_checkpoint(model, None, None, "yolo")
 
-    transform = albumentations.Compose([
-                    albumentations.Resize(width = 448, height = 448),
-                    ], bbox_params=albumentations.BboxParams(format="yolo", min_visibility=0.75, label_fields=['class_ids']))
-
-    dataset = VOCDataset(
-                "data/100examples.csv",
-                transform = transform,
-                img_dir = "data/images",
-                label_dir = "data/labels"
-                )
+    dataset = get_VOC_dataset(params = {
+            'training_csv': "data/test.csv",
+            'img_dir': "data/images",
+            'label_dir': "data/labels"
+        },
+        augment=False)
 
     data_loader = DataLoader(
             dataset = dataset,

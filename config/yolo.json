@@ -1,6 +1,6 @@
 {
-	"lr": 1e-4,
-	"batch_size": 2,
+	"lr": 1e-2,
+	"batch_size": 64,
 	"weight_decay": 5e-4,
 	"momentum": 0.9,
 	"epochs": 135,
@@ -8,6 +8,6 @@
 	"pin_memory": true,
 	"img_dir": "data/images",
 	"label_dir": "data/labels",
-	"training_csv": "data/100examples.csv",
+	"training_csv": "data/train.csv",
 	"num_epochs_between_checkpoints": 5
 }
