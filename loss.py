@@ -1,6 +1,26 @@
 import torch
 import torch.nn as nn
 
+def mean_average_precision(predictions, targets, min_iou = 0.5):
+    """Calculates mean average precision for evaluating the YOLO model's accuracy.
+    Arguments are the lists of predicted and target boxes in dict format.
+
+    """
+
+    evaluations = []
+    num_target_boxes = 0
+    for prediction, target in zip(predictions, targets):
+        num_target_boxes += len(target['bboxes'])
+        for bbox, confidence in zip(predictions['bboxes'], predictions['confidences']):
+            max_iou = max([intersection_over_union(bbox, target_bbox) for target_bbox in target['bboxes']])
+            evaluations.append({
+                "confidence": confidence,
+                "positive": max_iou >= min_iou
+            })
+
+    evaluations = sorted(evaluations, key = lambda item: item['confidence'])
+
+
 def intersection_over_union(box1, box2):
     box1x1 = box1[..., 0] - box1[..., 2] / 2
     box1y1 = box1[..., 1] - box1[..., 3] / 2
@@ -27,80 +47,74 @@ def intersection_over_union(box1, box2):
 class YoloLoss(nn.Module):
     def __init__(self, num_classes=20, num_boxes = 2):
         super(YoloLoss, self).__init__()
-        self.mse = nn.MSELoss(reduction="mean")
+        self.mse = nn.MSELoss(reduction="sum")
         self.num_classes = num_classes
         self.num_boxes = num_boxes
         self.lambda_noobj = 0.5
         self.lambda_coord = 5
     
     def forward(self, predictions, target):
+        batch_size = target.size()[0]
+
         predictions = predictions.reshape(-1, 7, 7, self.num_classes + 5 * self.num_boxes)
         class_predictions = predictions[..., :self.num_classes]
-        box_predictions = predictions[..., self.num_classes:]
 
         class_target = target[..., :self.num_classes]
-        box_target = target[..., self.num_classes:]
-        box_exists = box_target[..., 0].unsqueeze(3) 
+        indicator_i = target[..., self.num_classes].unsqueeze(3)
 
+        # class loss
+        class_loss = self.mse(
+            indicator_i * class_predictions, 
+            indicator_i * class_target
+        )
+
+        box_predictions = predictions[..., self.num_classes:].reshape(-1, 7, 7, self.num_boxes, 5)
+
+        box_target = target[..., self.num_classes:]
+        box_target = torch.cat((box_target, box_target), dim=3).reshape(-1, 7, 7, self.num_boxes, 5)
+        
         iou = torch.cat(
             [
                 intersection_over_union(
-                    box_predictions[..., (i*5 + 1):(i*5 + 5)], 
-                    box_target[..., 1:]
+                    box_predictions[..., i, 1:], 
+                    box_target[..., i, 1:]
                     ).unsqueeze(0)
-                for i in range(self.num_boxes)
+                for i in range(2)
             ],
             dim = 0
             )
 
         best_iou, best_box = torch.max(iou, dim = 0)
+
+        first_box_mask = torch.cat((torch.ones_like(indicator_i), torch.zeros_like(indicator_i)), dim=3)
+        second_box_mask = torch.cat((torch.zeros_like(indicator_i), torch.ones_like(indicator_i)), dim=3)
+
+        indicator_ij = (indicator_i * ((1-best_box) * first_box_mask + best_box * second_box_mask)).unsqueeze(4)
+
+        box_target[..., 0] = torch.cat((best_iou, best_iou), dim=3)
+        box_target = indicator_ij * box_target
         
-        ## TODO: Make this work for something other than B=2
-        predicted_box = (
-            (1-best_box) * box_predictions[..., 1:5]
-            + best_box * box_predictions[..., 6:10]
-        )
-        target_box = box_target[..., 1:]
-        predicted_confidence = (
-            (1-best_box) * box_predictions[..., 0:1]
-            + best_box * box_predictions[..., 5:6]
-        )
-        target_confidence = best_iou
-
-        # box loss
-
-        box_loc_loss = self.lambda_coord * self.mse(
-            torch.flatten(box_exists * predicted_box[..., 0:2], start_dim = 1),
-            torch.flatten(box_exists * target_box[..., 0:2], start_dim = 1)
+        # localization loss
+        xy_loss = self.lambda_coord * self.mse(
+            indicator_ij * box_predictions[..., 1:3],
+            indicator_ij * box_target[..., 1:3]
         )
 
-        predicted_box = torch.sign(predicted_box[..., 2:4]) * torch.sqrt(torch.abs(predicted_box[..., 2:4]) + 1e-6)
-        target_box = torch.sqrt(torch.abs(target_box[..., 2:4] + 1e-6))
-
-        box_size_loss = self.lambda_coord * self.mse(
-            torch.flatten(box_exists * predicted_box, start_dim = 1),
-            torch.flatten(box_exists * target_box, start_dim = 1)
+        wh_loss = self.lambda_coord * self.mse(
+            indicator_ij * torch.sign(box_predictions[..., 3:5]) * torch.sqrt(torch.abs(box_predictions[..., 3:5]) + 1e-6),
+            indicator_ij * torch.sign(box_target[..., 3:5]) * torch.sqrt(torch.abs(box_target[..., 3:5]) + 1e-6)
         )
 
         # object loss
         object_loss = self.mse(
-            torch.flatten(box_exists * predicted_confidence, start_dim = 1),
-            torch.flatten(box_exists * target_confidence, start_dim = 1)
+            indicator_ij * box_predictions[..., 0:1],
+            indicator_ij * box_target[..., 0:1]
         )
 
         # no object loss
         no_object_loss = self.lambda_noobj * self.mse(
-            torch.flatten((1-box_exists) * box_predictions[..., 0:1], start_dim = 1),
-            torch.flatten(torch.zeros_like(box_exists), start_dim = 1)
-        ) + self.lambda_noobj * self.mse(
-            torch.flatten((1-box_exists) * box_predictions[..., 5:6], start_dim = 1),
-            torch.flatten(torch.zeros_like(box_exists), start_dim = 1)
+            (1-indicator_ij) * box_predictions[..., 0:1],
+            (1-indicator_ij) * box_target[..., 0:1]
         )
 
-        # class loss
-        class_loss = self.mse(
-            torch.flatten(box_exists * class_predictions, start_dim = 1),
-            torch.flatten(box_exists * class_target, start_dim = 1)
-        )
-
-        return box_loc_loss + box_size_loss + object_loss + no_object_loss + class_loss
+        return (xy_loss + wh_loss + object_loss + no_object_loss + class_loss) / float(batch_size)

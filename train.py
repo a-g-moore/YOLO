@@ -1,14 +1,11 @@
 import click
 import torch
-import torch.nn as nn
-import torchvision.datasets as datasets
-import torchvision.transforms as transforms
 from tqdm import tqdm
 from torch.utils.data import DataLoader
 import json, statistics
 
 from model import Model
-from data import VOCDataset, Compose
+from data import get_VOC_dataset, get_ImageNet_dataset
 from loss import YoloLoss
 from checkpoint import save_checkpoint, load_checkpoint
 
@@ -45,14 +42,10 @@ def train(device, model, optimizer, loss_function, data_loader, scheduler, param
             optimizer.step()
 
             # update progress bar
-            loss_val = loss.item()
-            losses.append(loss_val)
-            mean_loss = statistics.mean(losses)
-            loop.set_postfix(loss=mean_loss, epoch = epoch, lr = scheduler.get_last_lr()[0])
+            losses.append(loss.item())
+            loop.set_postfix(loss=statistics.mean(losses), epoch = epoch, lr = scheduler.get_last_lr()[0])
 
-        mean_loss = statistics.mean(losses)
-        loop.set_postfix(mean_loss = mean_loss, epoch = epoch)
-        scheduler.step(metrics = mean_loss)
+        scheduler.step(metrics = statistics.mean(losses))
 
         if epoch % params['num_epochs_between_checkpoints'] == 0 and epoch:
             save_checkpoint(model, optimizer, scheduler, model_name)
@@ -79,42 +72,20 @@ def init(device, model_name, params, features):
     
     if model_name == 'yolo':
         scheduler = WrappedChainScheduler([
-            torch.optim.lr_scheduler.LinearLR(optimizer, start_factor = 0.1, total_iters = 10),
+            torch.optim.lr_scheduler.LinearLR(optimizer, start_factor = 0.1, total_iters = 30),
+            torch.optim.lr_scheduler.MultiStepLR(optimizer, milestones = [75, 105, 135])
+            #torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer)
+        ])
+
+    if model_name == 'imagenet':
+        scheduler = WrappedChainScheduler([
             torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer)
         ])
-        #torch.optim.lr_scheduler.MultiStepLR(optimizer, gamma = 0.1, milestones = [75, 105, 135], verbose = True)
 
-    if model_name == 'imagenet':
-        scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer, verbose = True)
-
-    loss_function = YoloLoss() if model_name == 'yolo' else nn.CrossEntropyLoss()
+    loss_function = YoloLoss() if model_name == 'yolo' else torch.nn.CrossEntropyLoss()
     loss_function = loss_function.to(device)
     
-    dataset = None
-    if model_name == 'yolo':
-        dataset = VOCDataset(
-                params['training_csv'],
-                transform = Compose([
-                    transforms.Resize((448, 448)), 
-                    transforms.ToTensor()
-                    ]),
-                img_dir = params['img_dir'],
-                label_dir = params['label_dir']
-                )
-    if model_name == 'imagenet':
-        dataset = datasets.ImageFolder(
-                params['data_folder'],
-                transforms.Compose([
-                    transforms.RandomHorizontalFlip(),
-                    transforms.RandomRotation(degrees = (-30, 30)),
-                    transforms.RandomResizedCrop(size = 224, scale = (0.33, 1.0)),
-                    transforms.ColorJitter(brightness=0.3, hue = 0.2),
-                    transforms.RandomPosterize(bits=4, p = 0.2),
-                    transforms.RandomAdjustSharpness(sharpness_factor = 2),
-                    transforms.RandomEqualize(),
-                    transforms.ToTensor(),
-                    ])
-                )
+    dataset = get_VOC_dataset(params) if model_name == 'yolo' else get_ImageNet_dataset(params)
 
     data_loader = DataLoader(
             dataset = dataset,
@@ -138,7 +109,7 @@ models = {
 @click.option('-f', '--features', help = 'Parent model checkpoint to extract a feature detector from.')
 @click.option('-s', '--seed', type=int, help = 'Manual seed for deterministic behavior.')
 @click.option('-p', '--params', 'param_filename', help = 'Specify a different parameter file.')
-def main(model_name, new, features, seed, param_filename): 
+def main(model_name, new, features, seed, param_filename, view): 
     device = "cuda" if torch.cuda.is_available() else "cpu"
     if not seed is None: torch.manual_seed(seed)
     

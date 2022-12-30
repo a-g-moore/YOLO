@@ -211,6 +211,10 @@
 			"activation": "LeakyReLU"
 		},
 		{
+			"type": "dropout",
+			"rate": 0.5
+		},
+		{
 			"type": "linear",
 			"output_size": 1000,
 			"activation": "none"

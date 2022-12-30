@@ -46,5 +46,19 @@ To visualize the output of the network on some examples, run `visualize.py`. If 
 # Current Coding Objectives 
 
 - Add testing for both models
-- VOC data augmentation (albumentations?)
 - Proper visualization & validation code (non-max suppression, mean average precision)
+
+# Details
+
+Most of the implementation is a direct copy of the paper. The paper was not specific about the design of the ImageNet classifier, so I chose the following simple system: 
+- 2x2 average pooling
+- 4096 fully connected neurons
+- LeakyReLU with slope 0.1
+- Dropout with probability 0.5
+- 1000 fully connected neurons (output)
+
+Following Aladdin's implementation, we have added batch normalization to each convolutional layer. We have also chosen to use an adaptive learning rate scheduler, Torch's `ReduceLROnPlateau` with default settings. This is the only scheduler for pre-training.
+
+## Training Report
+
+A friend provided the machine for training the model. The graphics card was an RTX 3090. The model was pre-trained with the ImageNet classifier for 400 epochs (~6 hours), with an initial average cross-entropy loss of 7.78 (after the first epoch) and a final loss of 0.164. The initial learning rate was chosen to be 10^-1 and the final learning rate was observed to be 10^-3. The validation accuracy after training was 11%, with accuracy on the training set at 91%, indicating a high degree of overfitting. This is obviously nowhere near as good as the 88% test validation reported in the paper, but on the other hand we did not have the resources to train on the full ImageNet-1000 set for 2 weeks. The YOLO model was then trained for 135 epochs following the learning rate schedule described in the paper, with an initial average MSE loss of 0.183 (after the first epoch) and a final loss of 0.0111. 

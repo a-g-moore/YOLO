@@ -1,7 +1,34 @@
 import torch
 import pandas as pd
-from PIL import Image
+import cv2
 import os
+import albumentations
+import torch
+import torchvision.datasets as datasets
+import torchvision.transforms as transforms
+
+LABEL_NAMES = [
+    'aeroplane', 
+    'bicycle', 
+    'bird', 
+    'boat', 
+    'bottle', 
+    'bus', 
+    'car', 
+    'cat', 
+    'chair', 
+    'cow', 
+    'diningtable', 
+    'dog', 
+    'horse', 
+    'motorbike', 
+    'person', 
+    'pottedplant', 
+    'sheep', 
+    'sofa', 
+    'train', 
+    'tvmonitor'
+    ]
 
 class Compose(object):
     def __init__(self, transforms):
@@ -14,57 +41,138 @@ class Compose(object):
         return img, bboxes
 
 class VOCDataset(torch.utils.data.Dataset):
-    def __init__(self, csv_file, img_dir, label_dir, splitSize = 7, numClasses = 20, transform = None):
+    def __init__(self, csv_file, img_dir, label_dir, transform, split_size = 7, num_classes = 20, ):
         self.annotations = pd.read_csv(csv_file)
         self.img_dir = img_dir
         self.label_dir = label_dir
         self.transform = transform
-        self.splitSize = splitSize
-        self.numClasses = numClasses
+        self.split_size = split_size
+        self.num_classes = num_classes
 
     def __len__(self):
         return len(self.annotations)
 
     def __getitem__(self, index):
         label_path = os.path.join(self.label_dir, self.annotations.iloc[index, 1])
-        boxes = []
-        with open(label_path) as f:
-            for label in f.readlines():
-                class_label, x, y, width, height = [
-                    float(x) if float(x) != int(float(x)) else int(x)
-                    for x in label.replace("\n", "").split()
-                ]
-
-                boxes.append([class_label, x, y, width, height])
-
         img_path = os.path.join(self.img_dir, self.annotations.iloc[index, 0])
-        image = Image.open(img_path)
-        boxes = torch.tensor(boxes)
+        label = self._read_label(label_path)
+        image = cv2.imread(img_path)
+        image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
 
-        if self.transform:
-            image, boxes = self.transform(image, boxes)
-
-        # Convert To Cells
-        label_matrix = torch.zeros((self.splitSize, self.splitSize, self.numClasses + 5))
-        for box in boxes:
-            class_label, x, y, width, height = box.tolist()
-            class_label = int(class_label)
+        transformed = self.transform(
+            image = image,
+            bboxes = label['bboxes'],
+            class_ids = label['class_ids']
+            )
             
-            row, col  = int(self.splitSize * y), int(self.splitSize * x)
+        image = torch.tensor(transformed['image'], dtype=torch.float).permute(2,0,1) / 255
+        label = list_to_label(transformed, self.split_size, self.num_classes)
+
+        return image, label
+    
+    def _read_label(self, path):
+        boxes = {
+            "bboxes": [],
+            "class_ids": []
+        }
+
+        with open(path) as f:
+            for label in f.readlines():
+                class_id, x, y, width, height = [float(x) for x in label.replace("\n", "").split()]
+
+                boxes['bboxes'].append([x, y, width, height])
+                boxes['class_ids'].append(int(class_id))
+
+        return boxes
+
+def list_to_label(label, split_size=7, num_classes=20):
+    """Transforms a label in list form (as in the filesystem or readable by
+    the visualization functions) to the (7,7,25) label tensor suitable for 
+    training the network.
+    """
+
+    label_matrix = torch.zeros((split_size, split_size, num_classes + 5))
+    for box, id in zip(label['bboxes'], label['class_ids']):
+        x, y, width, height = box
+        row, col  = int(split_size * y), int(split_size * x)
+
+        # Only allow one cell per box. Do not allows boxes whose centers do not lie in a valid cell. 
+        if label_matrix[row, col, num_classes] or not torch.all(torch.tensor([row,col]) == torch.clamp(torch.tensor([row,col]), min=0, max=split_size-1)): continue
+
+        # Transform the box to relative coordinates
+        relativeX, relativeY = split_size * x - col, split_size * y - row
+        width, height = (width * split_size, height * split_size)
+
+        # Enter the label into the tensor
+        label_matrix[row, col, num_classes] = 1
+        label_matrix[row, col, (num_classes+1):(num_classes+5)] = torch.tensor([relativeX, relativeY, width, height])
+        label_matrix[row, col, id] = 1
+
+    return label_matrix
+
+
+def label_to_list(label, split_size = 7, num_classes = 20, threshold = 0.5):
+    """Transforms the labels in (7,7,30) or (7,7,25) tensor format into list
+    type labels used in the data files and the visualization functions.
+    """
+
+    label = label[..., 0:25]
+
+    boxes = {
+        "bboxes": [],
+        "class_ids": [],
+        "confidences": []
+    }
+
+    for row in range(7):
+        for col in range(7):
+            if label.size()[2] == num_classes + 5 or label[row,col,num_classes] > label[row, col, num_classes+5]:
+                i = 0
+            else:
+                i = 1
             
-            if label_matrix[row, col, 20]:
-                continue
+            if label[row,col,num_classes + i*5] > threshold:
+                x, y, w, h = label[row,col,(num_classes + i*5 + 1):(num_classes + (i+1)*5)].tolist()
+                x = (x + col)/split_size
+                y = (y + row)/split_size
+                w = w/split_size
+                h = h/split_size
+                class_index = torch.argmax(label[row,col,:num_classes])
 
+                boxes['bboxes'].append([x,y,w,h])
+                boxes['class_ids'].append(class_index)
+                boxes['confidences'].append(label[row,col,num_classes + i*5])
 
-            relativeX, relativeY = self.splitSize * x - col, self.splitSize * y - row
-            width, height = (width * self.splitSize, height * self.splitSize)
+    return boxes
 
-            label_matrix[row, col, 20] = 1
-            label_matrix[row, col, 21:25] = torch.tensor([relativeX, relativeY, width, height])
-            label_matrix[row, col, class_label] = 1
+def get_VOC_dataset(params):
+    transform = albumentations.Compose([
+                    #albumentations.Resize(width = 448, height = 448),
+                    albumentations.HorizontalFlip(p=0.5),
+                    albumentations.RandomResizedCrop(width = 448, height = 448, scale=(0.7, 1.0)),
+                    albumentations.ColorJitter(),
+                    ], bbox_params=albumentations.BboxParams(format="yolo", min_visibility=0.75, label_fields=['class_ids']))
 
-        #print(boxes)
-        #print(decodeBoxes(label_matrix.unsqueeze(0)))
-        #print(label_matrix.shape)
+    return VOCDataset(
+                params['training_csv'],
+                transform = transform,
+                img_dir = params['img_dir'],
+                label_dir = params['label_dir']
+                )
+            
+def get_ImageNet_dataset(params, augment = True):
+    transform = transforms.Compose([
+                    transforms.RandomHorizontalFlip(),
+                    transforms.RandomRotation(degrees = (-30, 30)),
+                    transforms.RandomResizedCrop(size = 224, scale = (0.33, 1.0)),
+                    transforms.ColorJitter(brightness=0.3, hue = 0.2),
+                    transforms.RandomPosterize(bits=4, p = 0.2),
+                    transforms.RandomAdjustSharpness(sharpness_factor = 2),
+                    transforms.RandomEqualize(),
+                    transforms.ToTensor(),
+                    ]) if augment else transforms.Compose([
+                        transforms.Resize(size = (224, 224)),
+                        transforms.ToTensor()
+                    ])
 
-        return image, label_matrix
+    return datasets.ImageFolder(params['data_folder'], transform)
