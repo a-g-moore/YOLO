@@ -2,6 +2,8 @@
 
 This is a PyTorch-based implementation of the object detection algorithm YOLOv1, based on the paper _You Only Look Once: Unified, Real-Time Object Detection_ and the guide by Aladdin Persson.
 
+This is a learning project. So far I have only managed an mAP of 30.4, around half that reported in the paper. 
+
 ## Installation
 
 The program expects the Pascal VOC dataset prepared by Aladdin to be in a folder called `data/`. To obtain the data, run the following command using a Kaggle API key to download it from Aladdin's repository:
