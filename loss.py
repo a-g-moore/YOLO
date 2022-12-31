@@ -5,6 +5,7 @@ def mean_average_precision(predictions, targets, min_iou = 0.5):
     """Calculates mean average precision for evaluating the YOLO model's accuracy.
     Arguments are the lists of predicted and target boxes in dict format.
 
+    UNFINISHED
     """
 
     evaluations = []
@@ -106,7 +107,7 @@ class YoloLoss(nn.Module):
         )
 
         # object loss
-        object_loss = 2 * self.mse(
+        object_loss = self.mse(
             indicator_ij * box_predictions[..., 0:1],
             indicator_ij * box_target[..., 0:1]
         )
