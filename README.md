@@ -21,7 +21,7 @@ To set up the proper environment and install dependencies, run the following com
 ```sh
 python -m venv env
 source env/bin/activate
-python -m pip install torch torchvision matplotlib pandas tqdm click GPUtil
+python -m pip install torch torchvision matplotlib pandas tqdm click cv2 albumentations
 ```
 
 ## Training Instructions
