@@ -1,9 +1,9 @@
 {
-	"lr": 1e-2,
+	"lr": 1e-3,
 	"batch_size": 64,
 	"weight_decay": 5e-4,
 	"momentum": 0.9,
-	"epochs": 135,
+	"epochs": 90,
 	"num_workers": 8,
 	"pin_memory": true,
 	"img_dir": "data/images",

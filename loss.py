@@ -42,7 +42,7 @@ def intersection_over_union(box1, box2):
     intersection_area = torch.clamp(x2 - x1, min = 0) * torch.clamp(y2 - y1, min = 0)
 
     iou = intersection_area / (box1area + box2area - intersection_area + 1e-6)
-    return iou.unsqueeze(3)
+    return iou
 
 class YoloLoss(nn.Module):
     def __init__(self, num_classes=20, num_boxes = 2):
@@ -78,7 +78,7 @@ class YoloLoss(nn.Module):
                 intersection_over_union(
                     box_predictions[..., i, 1:], 
                     box_target[..., i, 1:]
-                    ).unsqueeze(0)
+                    ).unsqueeze(3).unsqueeze(0)
                 for i in range(self.num_boxes)
             ],
             dim = 0
@@ -106,7 +106,7 @@ class YoloLoss(nn.Module):
         )
 
         # object loss
-        object_loss = self.mse(
+        object_loss = 2 * self.mse(
             indicator_ij * box_predictions[..., 0:1],
             indicator_ij * box_target[..., 0:1]
         )

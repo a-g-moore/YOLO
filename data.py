@@ -151,7 +151,7 @@ def get_VOC_dataset(params, augment = True):
                     albumentations.ColorJitter(),
                     albumentations.Blur(blur_limit = 7, always_apply = False, p = 0.5),
                     albumentations.GaussNoise(var_limit = 40, mean = 0, per_channel = True, always_apply = False, p=0.5)
-                    ], bbox_params=albumentations.BboxParams(format="yolo", min_visibility=0.75, label_fields=['class_ids'])
+                    ], bbox_params=albumentations.BboxParams(format="yolo", min_visibility=0.8, label_fields=['class_ids'])
                     ) if augment else albumentations.Compose([
                     albumentations.Resize(width = 448, height = 448),
                     ], bbox_params=albumentations.BboxParams(format="yolo", min_visibility=0.75, label_fields=['class_ids'])

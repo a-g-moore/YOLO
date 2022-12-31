@@ -2,15 +2,47 @@ import torch
 import numpy as np
 import matplotlib.pyplot as plt 
 import matplotlib.patches as patches
-import albumentations
+import albumentations, torchvision
 import math
 import cv2
 from torch.utils.data import DataLoader
 from data import get_VOC_dataset
 from model import Model
 from checkpoint import load_checkpoint
+from loss import YoloLoss, intersection_over_union
 
 from data import label_to_list, LABEL_NAMES
+
+def nms_one_class(boxes, threshold=0.2):
+    boxes = sorted(boxes, key=lambda box: box["confidence"], reverse=True)
+
+    i = 0
+    while i < len(boxes):
+        ref_box = boxes[i]
+        boxes = list(filter(lambda box: box is ref_box or intersection_over_union(torch.tensor(ref_box['bbox']), torch.tensor(box['bbox'])) < threshold, boxes))
+        i+=1
+
+    return boxes
+
+def non_max_suppression(labels):
+    separated_classes = list(map(lambda x: [], range(20)))
+    for bbox, id, confidence in zip(labels['bboxes'], labels['class_ids'], labels['confidences']):
+        separated_classes[id].append({"bbox": bbox, "confidence": float(confidence)})
+    
+    cleaned_classes = list(map(nms_one_class, separated_classes))
+
+    final = {
+        "bboxes": [],
+        "class_ids": [],
+        "confidences": []
+    }
+    for i, class_list in enumerate(cleaned_classes):
+        for box in class_list:
+            final['bboxes'].append(box['bbox'])
+            final['class_ids'].append(i)
+            final['confidences'].append(box['confidence'])
+    
+    return final
 
 def plot_boxes(boxes, axes, color, shape):
     height, width, _ = shape
@@ -76,13 +108,19 @@ def visualize(device, model, data_loader, plots_per_row = 4):
     for i in range(num_samples):
         images, targets = next(iter(data_loader))
         inferences = model(images.to(device)).reshape(1, 7, 7, 30).to('cpu')
+
+        #loss = YoloLoss()
+        #print(loss(inferences, targets).item())
+
         ax = axs[int(i/plots_per_row), i % plots_per_row]
         target_labels = label_to_list(targets[0, ...])
         inference_labels = label_to_list(inferences[0, ...], threshold = 0.05)
+        inference_labels = non_max_suppression(inference_labels)
+        
         
         image = (255 * images[0, ...]).type(torch.ByteTensor).permute(1, 2, 0).numpy()
         
-        image = plot_boxes(image, target_labels, color = (230, 30, 30))
+        #image = plot_boxes(image, target_labels, color = (230, 30, 30))
         image = plot_boxes(image, inference_labels, color = (15, 80, 220))
         ax.imshow(image)
     
@@ -90,7 +128,11 @@ def visualize(device, model, data_loader, plots_per_row = 4):
 
 def main():
     device = "cuda" if torch.cuda.is_available() else "cpu"
-    model = Model(classifier_name = f"yolo_classifier").to(device)
+    #VGG = torchvision.models.vgg16(weights = torchvision.models.VGG16_Weights.IMAGENET1K_FEATURES)
+    #featureDetector = VGG.features[:-1]
+    featureDetector = None
+    model = Model(classifier_name = f"yolo_classifier", featureDetector=featureDetector).to(device)
+
     load_checkpoint(model, None, None, "yolo")
 
     dataset = get_VOC_dataset(params = {

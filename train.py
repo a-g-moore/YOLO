@@ -2,6 +2,7 @@ import click
 import torch
 from tqdm import tqdm
 from torch.utils.data import DataLoader
+import torchvision
 import json, statistics
 
 from model import Model
@@ -56,9 +57,15 @@ def init(device, model_name, params, features):
     # If instructed, load a feature dectection block from a specified checkpoint
     featureDetector = None
     if features:
-        parent_model = Model(classifier_name = f"{features}_classifier")
-        load_checkpoint(parent_model, None, None, features)
-        featureDetector = parent_model.featureDetector
+        if features == "VGG16":
+            VGG = torchvision.models.vgg16(weights = torchvision.models.VGG16_Weights.IMAGENET1K_FEATURES)
+            featureDetector = VGG.features[:-1]
+            for param in featureDetector.parameters():
+                param.requires_grad = False
+        else:
+            parent_model = Model(classifier_name = f"{features}_classifier")
+            load_checkpoint(parent_model, None, None, features)
+            featureDetector = parent_model.featureDetector
         
     # Create the appropriate model, using a pre-loaded feature detector if necessary.
     model = Model(classifier_name = f"{model_name}_classifier", featureDetector = featureDetector).to(device)
