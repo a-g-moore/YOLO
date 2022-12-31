@@ -6,10 +6,10 @@ def save_checkpoint(model, optimizer, scheduler, filename):
     state = {'model': model.state_dict(), 'optimizer': optimizer.state_dict(), 'scheduler': scheduler.state_dict()}
     if not os.path.exists('checkpoints'): 
         os.makedirs('checkpoints')
-        os.chmod('checkpoints', stat.S_IRWXU | stat.S_IRWXG | stat.S_IRWXO)
+        #os.chmod('checkpoints', stat.S_IRWXU | stat.S_IRWXG | stat.S_IRWXO)
     
     torch.save(state, filename)
-    os.chmod(filename, stat.S_IRWXU | stat.S_IRWXG | stat.S_IRWXO)
+    #os.chmod(filename, stat.S_IRWXU | stat.S_IRWXG | stat.S_IRWXO)
 
     # TODO: Remove chmod commands for deployment. These are specifically for working with the shared folder
     # and are only for purposes of collaboration in development. They may present a security risk if the 
